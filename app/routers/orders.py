@@ -8,6 +8,7 @@ from app.auth import get_current_user
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
+
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 def create_order(
     order_data: OrderCreate,
@@ -15,8 +16,6 @@ def create_order(
     current_user: User = Depends(get_current_user)
 ):
     """Savatdagi mahsulotlardan buyurtma yaratish"""
-    
-    # Foydalanuvchining savatini olish
     cart_items = db.query(Cart).filter(Cart.user_id == current_user.id).all()
     
     if not cart_items:
@@ -28,7 +27,6 @@ def create_order(
     total_amount = 0
     order_items_list = []
     
-    # Har bir savatdagi mahsulotni tekshirish
     for cart_item in cart_items:
         product = db.query(Product).filter(Product.id == cart_item.product_id).first()
         if not product:
@@ -52,10 +50,8 @@ def create_order(
             "price": product.price
         })
         
-        # Mahsulot zaxirasini kamaytirish
         product.stock -= cart_item.quantity
     
-    # Buyurtma yaratish
     new_order = Order(
         user_id=current_user.id,
         total_amount=total_amount,
@@ -66,7 +62,6 @@ def create_order(
     db.commit()
     db.refresh(new_order)
     
-    # Buyurtma mahsulotlarini qo'shish
     for item in order_items_list:
         order_item = OrderItem(
             order_id=new_order.id,
@@ -76,13 +71,28 @@ def create_order(
         )
         db.add(order_item)
     
-    # Savatni tozalash
     db.query(Cart).filter(Cart.user_id == current_user.id).delete()
-    
     db.commit()
     db.refresh(new_order)
     
     return new_order
+
+
+@router.get("/admin/all", response_model=List[OrderResponse])  # /{order_id} dan OLDIN!
+def get_all_orders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Barcha buyurtmalar (faqat admin)"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Faqat adminlar barcha buyurtmalarni ko'ra oladi"
+        )
+    
+    orders = db.query(Order).all()
+    return orders
+
 
 @router.get("/", response_model=List[OrderResponse])
 def get_my_orders(
@@ -92,6 +102,7 @@ def get_my_orders(
     """Foydalanuvchining barcha buyurtmalari"""
     orders = db.query(Order).filter(Order.user_id == current_user.id).all()
     return orders
+
 
 @router.get("/{order_id}", response_model=OrderResponse)
 def get_order_by_id(
@@ -111,6 +122,7 @@ def get_order_by_id(
             detail="Buyurtma topilmadi"
         )
     return order
+
 
 @router.put("/{order_id}/status", response_model=OrderResponse)
 def update_order_status(
@@ -137,18 +149,3 @@ def update_order_status(
     db.commit()
     db.refresh(order)
     return order
-
-@router.get("/admin/all", response_model=List[OrderResponse])
-def get_all_orders(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Barcha buyurtmalar (faqat admin)"""
-    if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Faqat adminlar barcha buyurtmalarni ko'ra oladi"
-        )
-    
-    orders = db.query(Order).all()
-    return orders
