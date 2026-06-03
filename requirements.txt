@@ -1,0 +1,17 @@
+uvicorn
+sqlalchemy
+psycopg2-binary
+python-dotenv
+pydantic-settings
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+alembic
+redis
+celery
+httpx
+pytest
+pytest-asyncio
+email-validator
+pillow
+stripe

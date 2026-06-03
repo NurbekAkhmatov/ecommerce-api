@@ -1,0 +1,1 @@
+from app.routers import auth, categories, products, cart, orders, reviews
